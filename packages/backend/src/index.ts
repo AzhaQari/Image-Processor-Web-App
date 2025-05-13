@@ -6,6 +6,9 @@ import { loadSecrets, getConfig } from './config/secrets';
 import cookie from '@fastify/cookie';
 import session from '@fastify/session';
 import authRoutes from './routes/authRoutes'; // Import the auth routes
+import fastifyMultipart from '@fastify/multipart';
+import imageRoutes from './routes/imageRoutes';
+import fastifyCors from '@fastify/cors';
 
 // __dirname is available in CommonJS modules by default
 
@@ -21,6 +24,15 @@ async function setupApp() {
   if (config.gcpProjectId) {
     console.log(`Operating with GCP Project ID: ${config.gcpProjectId}`);
   }
+
+  // Register CORS
+  // IMPORTANT: Register CORS before routes and potentially before session/cookie if they rely on CORS headers for cross-domain scenarios
+  await app.register(fastifyCors, {
+    origin: 'http://localhost:5173', // Frontend URL
+    credentials: true, // Allow cookies to be sent and received
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+  });
 
   // Register cookie plugin
   app.register(cookie);
@@ -40,8 +52,17 @@ async function setupApp() {
     // resave: false, // Don't resave session if not modified
   });
 
+  // Register fastify-multipart for file uploads
+  // It's important to register this before routes that use it.
+  app.register(fastifyMultipart, {
+    // addToBody: true, // if you want to access files via request.body.file
+    // attachFieldsToBody: true, // if you want to access fields via request.body.fieldName
+    // limits: { fileSize: 10 * 1024 * 1024 } // Example: 10MB limit
+  });
+
   // Register auth routes
   app.register(authRoutes, { prefix: '/api/auth' });
+  app.register(imageRoutes, { prefix: '/api/images' });
 
   // Register Swagger
   app.register(swagger, {
