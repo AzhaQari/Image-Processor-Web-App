@@ -7,4 +7,10 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
-export { DefaultService } from './services/DefaultService';
+export type { ErrorResponse } from './models/ErrorResponse';
+export { ImageMetadata } from './models/ImageMetadata';
+export type { User } from './models/User';
+
+export { AuthenticationService } from './services/AuthenticationService';
+export { ImagesService } from './services/ImagesService';
+export { UsersService } from './services/UsersService';
