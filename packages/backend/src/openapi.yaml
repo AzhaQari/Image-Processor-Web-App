@@ -1,0 +1,119 @@
+openapi: 3.0.0
+info:
+  title: Image Processor API
+  version: 1.0.0
+  description: API for uploading, processing, and managing images.
+
+paths:
+  /auth/google:
+    post:
+      summary: Initiate Google OAuth flow
+      responses:
+        '302':
+          description: Redirect to Google's OAuth consent screen.
+        '500':
+          description: Internal Server Error
+
+  /auth/google/callback:
+    get:
+      summary: Handle Google OAuth callback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: Authorization code from Google.
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false # Often used, but let's keep it optional for now
+          description: An opaque value used to maintain state between the request and callback.
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to frontend dashboard on success.
+        '400':
+          description: Bad Request (e.g., missing code)
+        '500':
+          description: Internal Server Error
+
+  /auth/logout:
+    post:
+      summary: Log out the current user
+      responses:
+        '200':
+          description: Successfully logged out.
+        '500':
+          description: Internal Server Error
+
+  /users/me:
+    get:
+      summary: Get current user's profile
+      security:
+        - cookieAuth: [] # Placeholder for session/cookie based auth
+      responses:
+        '200':
+          description: User profile data.
+          content:
+            application/json:
+              schema:
+                type: object # Define user schema later
+                properties:
+                  id:
+                    type: string
+                  email:
+                    type: string
+                  name:
+                    type: string
+        '401':
+          description: Unauthorized
+
+  /images/upload:
+    post:
+      summary: Upload an image
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Image uploaded successfully.
+        '400':
+          description: Bad Request (e.g., no file, invalid file type)
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
+
+  /images:
+    get:
+      summary: List user's images
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: A list of images.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object # Define image schema later
+        '401':
+          description: Unauthorized
+
+components:
+  securitySchemes:
+    cookieAuth: # Define how cookie authentication works
+      type: apiKey # Using apiKey type to represent session cookie for OpenAPI document purposes
+      in: cookie
+      name: sessionId # Name of the cookie, e.g., 'sessionId' or connect.sid 

@@ -1,0 +1,16 @@
+{
+  "name": "image-processor-web-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "generate:sdk": "npx openapi-typescript-codegen --input ./packages/backend/src/openapi.yaml --output ./packages/frontend/src/sdk --client axios"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "openapi-typescript-codegen": "^0.29.0"
+  }
+}
