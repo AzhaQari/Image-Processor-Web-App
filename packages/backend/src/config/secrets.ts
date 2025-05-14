@@ -75,7 +75,7 @@ export async function loadSecrets(): Promise<void> {
     { key: 'gcsBucketName', name: 'GCS_BUCKET_NAME', required: true },
     { key: 'sessionSecret', name: 'SESSION_SECRET', required: true },
     // GCP_PROJECT_ID is already handled
-    // { key: 'gcsServiceAccountKeyJson', name: 'GCS_SERVICE_ACCOUNT_KEY_JSON', required: false }, // Optional
+    { key: 'gcsServiceAccountKeyJson', name: 'GCS_SERVICE_ACCOUNT_KEY_JSON', required: true },
   ];
 
   for (const secretInfo of secretsToLoad) {
@@ -90,7 +90,7 @@ export async function loadSecrets(): Promise<void> {
   }
 
   // Validate that required secrets are loaded
-  if (!appConfig.googleClientId || !appConfig.googleClientSecret || !appConfig.gcsBucketName || !appConfig.sessionSecret) {
+  if (!appConfig.googleClientId || !appConfig.googleClientSecret || !appConfig.gcsBucketName || !appConfig.sessionSecret || !appConfig.gcsServiceAccountKeyJson) {
     throw new Error('One or more required application secrets could not be loaded. Check logs.');
   }
 
