@@ -1,12 +1,9 @@
 import { FastifyInstance, FastifyRequest, FastifyReply, RouteHandlerMethod } from 'fastify';
-import { Storage } from '@google-cloud/storage';
 import { randomUUID } from 'crypto';
 import { getConfig } from '../config/secrets';
 import { saveImageMetadata, ImageMetadata, getImagesByUserId } from '../services/imageService';
+import { getStorage, listFiles } from '../services/gcsService';
 // No longer need to import AppSessionData from authRoutes if we define it locally or rely on augmentation
-
-// Initialize GCS Storage client
-const storage = new Storage();
 
 // Define a type for our session user data (consistent with authRoutes)
 interface SessionUserData {
@@ -64,7 +61,7 @@ export default async function imageRoutes(fastify: FastifyInstance) {
       const userId = request.session.user!.userId!;
       const uniqueId = randomUUID();
       const gcsFileName = `${userId}/${uniqueId}_${data.filename}`;
-      const file = storage.bucket(gcsBucketName).file(gcsFileName);
+      const file = getStorage().bucket(gcsBucketName).file(gcsFileName);
 
       try {
         fastify.log.info(`Uploading ${data.filename} to gs://${gcsBucketName}/${gcsFileName}`);
@@ -107,6 +104,29 @@ export default async function imageRoutes(fastify: FastifyInstance) {
       } catch (error) {
         fastify.log.error('Error fetching images for user:', error);
         reply.code(500).send({ error: 'Internal Server Error', message: 'Failed to fetch images.' });
+      }
+    }
+  });
+
+  // Debugging endpoint to list all files in the bucket
+  fastify.get('/debug/list-files', {
+    preHandler: fastify.auth([verifyUserSession]), // Only authenticated users can access
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        // Get userId from session to list files for that user
+        const userId = request.session.user!.userId!;
+        
+        // List files for this user
+        const files = await listFiles(userId + '/');
+        
+        reply.send({
+          userId,
+          files,
+          count: files.length
+        });
+      } catch (error) {
+        fastify.log.error('Error listing files from GCS:', error);
+        reply.code(500).send({ error: 'Internal Server Error', message: 'Failed to list files from GCS.' });
       }
     }
   });

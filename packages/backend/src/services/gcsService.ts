@@ -3,7 +3,7 @@ import { getConfig } from '../config/secrets';
 
 let storage: Storage;
 
-function getStorage(): Storage {
+export function getStorage(): Storage {
   if (!storage) {
     const config = getConfig();
     const keyJson = config.gcsServiceAccountKeyJson;
@@ -32,6 +32,26 @@ function getStorage(): Storage {
   }
   return storage;
 }
+
+// Helper to list all files in a bucket (useful for debugging)
+export const listFiles = async (prefix?: string): Promise<string[]> => {
+  const config = getConfig();
+  const bucketName = config.gcsBucketName;
+  
+  if (!bucketName) {
+    throw new Error('GCS bucket name not configured');
+  }
+  
+  try {
+    const options = prefix ? { prefix } : {};
+    const [files] = await getStorage().bucket(bucketName).getFiles(options);
+    
+    return files.map(file => file.name);
+  } catch (error) {
+    console.error('Error listing files in GCS bucket:', error);
+    throw new Error('Failed to list files in GCS bucket');
+  }
+};
 
 export const generateSignedUrl = async (gcsPath: string): Promise<string> => {
   const config = getConfig();
