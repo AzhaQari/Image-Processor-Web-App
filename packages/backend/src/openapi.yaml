@@ -236,27 +236,57 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  # Placeholder for GET /api/images
-  # /api/images:
-  #   get:
-  #     summary: List user's images
-  #     description: Retrieves a list of images uploaded by the authenticated user.
-  #     tags:
-  #       - Images
-  #     security:
-  #       - cookieAuth: []
-  #     responses:
-  #       '200':
-  #         description: Successfully retrieved list of images.
-  #         content:
-  #           application/json:
-  #             schema:
-  #               type: array
-  #               items:
-  #                 $ref: '#/components/schemas/ImageMetadata'
-  #       '401':
-  #         description: Unauthorized.
-  #         content:
-  #           application/json:
-  #             schema:
-  #               $ref: '#/components/schemas/ErrorResponse' 
+  /api/images: # New path for listing images
+    get:
+      summary: List user's images
+      description: Retrieves a list of image metadata records uploaded by the authenticated user, sorted by most recent.
+      tags:
+        - Images
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Successfully retrieved list of image metadata.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ImageMetadata'
+        '401':
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# Placeholder for GET /api/images
+# /api/images:
+#   get:
+#     summary: List user's images
+#     description: Retrieves a list of images uploaded by the authenticated user.
+#     tags:
+#       - Images
+#     security:
+#       - cookieAuth: []
+#     responses:
+#       '200':
+#         description: Successfully retrieved list of images.
+#         content:
+#           application/json:
+#             schema:
+#               type: array
+#               items:
+#                 $ref: '#/components/schemas/ImageMetadata'
+#       '401':
+#         description: Unauthorized.
+#         content:
+#           application/json:
+#             schema:
+#               $ref: '#/components/schemas/ErrorResponse' 

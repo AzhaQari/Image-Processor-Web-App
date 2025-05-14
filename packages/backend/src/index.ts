@@ -9,10 +9,15 @@ import authRoutes from './routes/authRoutes'; // Import the auth routes
 import fastifyMultipart from '@fastify/multipart';
 import imageRoutes from './routes/imageRoutes';
 import fastifyCors from '@fastify/cors';
+import fastifyAuth from '@fastify/auth';
+import fastifySensible from '@fastify/sensible';
 
 // __dirname is available in CommonJS modules by default
 
 const app = fastify({ logger: true });
+
+// Register sensible first to make httpErrors available
+app.register(fastifySensible);
 
 // Function to configure and register plugins, routes, etc.
 async function setupApp() {
@@ -51,6 +56,9 @@ async function setupApp() {
     // saveUninitialized: false, // Don't save sessions that are new but not modified
     // resave: false, // Don't resave session if not modified
   });
+
+  // Register @fastify/auth after session and cookie
+  app.register(fastifyAuth);
 
   // Register fastify-multipart for file uploads
   // It's important to register this before routes that use it.
