@@ -44,6 +44,58 @@ export function ImageList() {
     fetchImages();
   }, []);
 
+  const handleDownload = async (image: ImageMetadata) => {
+    if (!image.signedUrl) {
+      alert('No download URL available for this image.'); // Or trigger backend to generate one
+      return;
+    }
+    try {
+      const response = await fetch(image.signedUrl);
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', image.fileName || 'download');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error('Download error:', err);
+      alert(err instanceof Error ? err.message : 'Could not download image.');
+    }
+  };
+
+  const handleDelete = async (imageId: string, gcsPath: string) => {
+    if (!window.confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      // TODO: Replace with actual SDK call to backend
+      const response = await fetch(`http://localhost:3000/api/images/${imageId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        // Potentially send gcsPath in body if needed by backend for GCS deletion
+        // headers: { 'Content-Type': 'application/json' },
+        // body: JSON.stringify({ gcsPath }) 
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to delete image. Server response not readable.' }));
+        throw new Error(errorData.message || `Failed to delete image. Status: ${response.status}`);
+      }
+
+      setImages(prevImages => prevImages.filter(img => img.id !== imageId));
+      // Optionally show a success toast/notification
+      alert('Image deleted successfully.');
+
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert(err instanceof Error ? err.message : 'Could not delete image.');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch(status) {
       case 'processed': return 'bg-green-100 text-green-800 border-green-200';
@@ -189,16 +241,17 @@ export function ImageList() {
               <table className="min-w-full divide-y divide-slate-200">
                 <thead className="bg-indigo-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-indigo-600 uppercase tracking-wider">Preview</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-indigo-600 uppercase tracking-wider">File Information</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-indigo-600 uppercase tracking-wider">Status</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-indigo-600 uppercase tracking-wider">Details</th>
+                    <th scope="col" className="px-8 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider border-b border-indigo-200">Preview</th>
+                    <th scope="col" className="px-8 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider border-b border-indigo-200 border-l border-indigo-200">File Information</th>
+                    <th scope="col" className="px-8 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider border-b border-indigo-200 border-l border-indigo-200">Status</th>
+                    <th scope="col" className="px-8 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider border-b border-indigo-200 border-l border-indigo-200">Details</th>
+                    <th scope="col" className="px-8 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider border-b border-indigo-200 border-l border-indigo-200">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {images.map((image, index) => (
                     <tr key={image.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-indigo-50/40 transition-colors`}>
-                      <td className="px-6 py-4">
+                      <td className="px-8 py-4 border-b border-slate-200 border-l border-slate-200 align-top">
                         <div className="h-[100px] w-[100px] rounded-md bg-slate-100 overflow-hidden flex items-center justify-center shadow-sm border border-slate-200">
                           {image.signedUrl ? (
                             <img
@@ -206,7 +259,7 @@ export function ImageList() {
                               alt={image.fileName}
                               className="w-[100px] h-[100px] object-contain"
                               style={{ 
-                                maxWidth: '100px', 
+                                maxWidth: '1000px', 
                                 maxHeight: '100px', 
                                 width: '100px',
                                 height: '100px',
@@ -225,18 +278,18 @@ export function ImageList() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-8 py-4 border-b border-slate-200 border-l border-slate-200 align-top">
                         <div className="text-sm font-medium text-slate-800 truncate max-w-[200px]" title={image.fileName}>
                           {image.fileName}
                         </div>
                         <div className="text-xs text-slate-500 mt-1">{image.contentType}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-8 py-4 border-b border-slate-200 border-l border-slate-200 align-top">
                         <Badge className={`px-3 py-1 ${getStatusColor(image.status)}`}>
                           {image.status.charAt(0).toUpperCase() + image.status.slice(1)}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-8 py-4 border-b border-slate-200 border-l border-slate-200 align-top">
                         <div className="flex flex-col space-y-1">
                           <div className="text-xs flex items-center gap-1 text-slate-600">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -258,8 +311,35 @@ export function ImageList() {
                               <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                               <polyline points="14 2 14 8 20 8" />
                             </svg>
-                            <span>ID: {image.id.slice(0, 8)}...</span>
+                            <span>ID: {image.id.slice(0, 12)}...</span>
                           </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5 border-b border-slate-200 border-l border-slate-200 align-top">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleDownload(image)}
+                            title="Download image"
+                            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded-md transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                              <polyline points="7 10 12 15 17 10"></polyline>
+                              <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(image.id, image.gcsPath)}
+                            title="Delete image"
+                            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              <line x1="10" y1="11" x2="10" y2="17"></line>
+                              <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                          </button>
                         </div>
                       </td>
                     </tr>
