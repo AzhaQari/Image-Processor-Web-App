@@ -6,6 +6,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ImagesService } from '@/sdk'; // Assuming SDK index exports services
 import { ImageMetadata } from '@/sdk'; // Assuming SDK index exports models
 import { ApiError } from '@/sdk'; // Assuming SDK index exports ApiError
+import { ImageList } from '@/components/ImageList';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 const DashboardPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -58,40 +60,53 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '600px', margin: 'auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Dashboard</h1>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          {user && <p className="text-gray-600 mt-2">Welcome, {user.name || user.email}!</p>}
+        </div>
         <Button onClick={logout} variant="destructive">Logout</Button>
       </div>
-      {user && <p style={{ marginBottom: '20px' }}>Welcome, {user.name || user.email}!</p>}
       
-      <div style={{ marginBottom: '20px' }}>
-        <h2>Upload New Image</h2>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <Input type="file" onChange={handleFileChange} disabled={isLoading} accept="image/png, image/jpeg, image/gif" />
-          <Button onClick={handleUpload} disabled={!selectedFile || isLoading}>
-            {isLoading ? 'Uploading...' : 'Upload'}
-          </Button>
-        </div>
+      <div className="mb-8">
+        <Card>
+          <CardHeader>
+            <h2 className="text-2xl font-bold">Upload New Image</h2>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4 items-center">
+              <Input 
+                type="file" 
+                onChange={handleFileChange} 
+                disabled={isLoading} 
+                accept="image/png, image/jpeg, image/gif"
+                className="flex-1"
+              />
+              <Button onClick={handleUpload} disabled={!selectedFile || isLoading}>
+                {isLoading ? 'Uploading...' : 'Upload'}
+              </Button>
+            </div>
+
+            {uploadStatus === 'success' && uploadedImage && (
+              <Alert variant="default" className="mt-4 bg-green-100 border-green-400 text-green-700">
+                <AlertTitle>Success!</AlertTitle>
+                <AlertDescription>
+                  {statusMessage}
+                </AlertDescription>
+              </Alert>
+            )}
+            {uploadStatus === 'error' && (
+              <Alert variant="destructive" className="mt-4">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{statusMessage}</AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {uploadStatus === 'success' && uploadedImage && (
-        <Alert variant="default" className="mt-4 bg-green-100 border-green-400 text-green-700">
-          <AlertTitle>Success!</AlertTitle>
-          <AlertDescription>
-            {statusMessage} (ID: {uploadedImage.id}, Path: {uploadedImage.gcsPath})
-          </AlertDescription>
-        </Alert>
-      )}
-      {uploadStatus === 'error' && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{statusMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      <p style={{ marginTop: '40px' }}>This is your dashboard. Image upload and gallery will be here.</p>
-      {/* Image gallery will go here later */}
+      <ImageList />
     </div>
   );
 };
