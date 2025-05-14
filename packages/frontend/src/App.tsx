@@ -1,8 +1,10 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import LandingPage from './pages/LandingPage';
-import DashboardPage from './pages/DashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import DashboardLayout from './layouts/DashboardLayout';
+import UploadPage from './pages/UploadPage';
+import GalleryPage from './pages/GalleryPage';
 import './App.css'
 
 function App() {
@@ -10,16 +12,19 @@ function App() {
     <AuthProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route 
-          path="/dashboard" 
+        <Route
+          path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <DashboardLayout />
             </ProtectedRoute>
           }
-        />
-        {/* We can add a specific /auth/callback route here if needed for frontend logic,
-            but current backend redirects directly to /dashboard */}
+        >
+          <Route index element={<UploadPage />} />
+          <Route path="upload" element={<UploadPage />} />
+          <Route path="gallery" element={<GalleryPage />} />
+        </Route>
+        {/* Callback route is handled by backend, then redirects to /dashboard */}
       </Routes>
     </AuthProvider>
   )
