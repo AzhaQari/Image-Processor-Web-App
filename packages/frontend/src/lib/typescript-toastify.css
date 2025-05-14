@@ -1,0 +1,245 @@
+/* Toast Container */
+.typescript-toastify-container {
+  position: fixed;
+  z-index: 9999;
+}
+
+/* Toast Position Containers */
+.toast-container {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 350px;
+  min-width: 300px;
+}
+
+/* Position Classes */
+.toast-container-top-right {
+  top: 1rem;
+  right: 1rem;
+  flex-direction: column;
+}
+
+.toast-container-top-left {
+  top: 1rem;
+  left: 1rem;
+  flex-direction: column;
+}
+
+.toast-container-top-center {
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: column;
+}
+
+.toast-container-bottom-right {
+  bottom: 1rem;
+  right: 1rem;
+  flex-direction: column-reverse;
+}
+
+.toast-container-bottom-left {
+  bottom: 1rem;
+  left: 1rem;
+  flex-direction: column-reverse;
+}
+
+.toast-container-bottom-center {
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: column-reverse;
+}
+
+/* Toast Styles */
+.toast {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  overflow: hidden;
+  width: 100%;
+}
+
+.toast-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Toast Types */
+.toast-default {
+  background-color: white;
+  border-left: 5px solid #6366f1; /* Indigo color */
+  color: #1f2937;
+}
+
+.toast-success {
+  background-color: white;
+  border-left: 5px solid #10b981; /* Green color */
+  color: #064e3b;
+}
+
+.toast-info {
+  background-color: white;
+  border-left: 5px solid #3b82f6; /* Blue color */
+  color: #1e40af;
+}
+
+.toast-warning {
+  background-color: white;
+  border-left: 5px solid #f59e0b; /* Yellow color */
+  color: #92400e;
+}
+
+.toast-error {
+  background-color: white;
+  border-left: 5px solid #ef4444; /* Red color */
+  color: #b91c1c;
+}
+
+/* Dark Theme */
+.toast-theme-dark {
+  background-color: #1f2937;
+  color: #f9fafb;
+}
+
+.toast-default.toast-theme-dark {
+  border-left: 5px solid #818cf8; /* Indigo lighter */
+}
+
+.toast-success.toast-theme-dark {
+  border-left: 5px solid #34d399; /* Green lighter */
+}
+
+.toast-info.toast-theme-dark {
+  border-left: 5px solid #60a5fa; /* Blue lighter */
+}
+
+.toast-warning.toast-theme-dark {
+  border-left: 5px solid #fbbf24; /* Yellow lighter */
+}
+
+.toast-error.toast-theme-dark {
+  border-left: 5px solid #f87171; /* Red lighter */
+}
+
+/* Toast Content */
+.toast-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.toast-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.toast-message {
+  font-size: 0.875rem;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+/* Close Button */
+.toast-close-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: transparent;
+  border: none;
+  color: currentColor;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  transition: opacity 0.2s ease;
+}
+
+.toast-close-button:hover {
+  opacity: 1;
+}
+
+/* Progress Bar */
+.toast-progress-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.toast-progress-bar {
+  height: 100%;
+  background-color: currentColor;
+  opacity: 0.7;
+  transition: width linear;
+}
+
+/* Progress bar colors by type */
+.toast-default .toast-progress-bar {
+  background-color: #6366f1; /* Indigo */
+}
+
+.toast-success .toast-progress-bar {
+  background-color: #10b981; /* Green */
+}
+
+.toast-info .toast-progress-bar {
+  background-color: #3b82f6; /* Blue */
+}
+
+.toast-warning .toast-progress-bar {
+  background-color: #f59e0b; /* Yellow */
+}
+
+.toast-error .toast-progress-bar {
+  background-color: #ef4444; /* Red */
+}
+
+/* Animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+}
+
+.toast-enter {
+  animation: fadeInUp 0.3s ease forwards;
+}
+
+.toast-exit {
+  animation: fadeOutDown 0.3s ease forwards;
+} 

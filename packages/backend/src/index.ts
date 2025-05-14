@@ -8,9 +8,11 @@ import session from '@fastify/session';
 import authRoutes from './routes/authRoutes'; // Import the auth routes
 import fastifyMultipart from '@fastify/multipart';
 import imageRoutes from './routes/imageRoutes';
+import notificationRoutes from './routes/notificationRoutes'; // Added import
 import fastifyCors from '@fastify/cors';
 import fastifyAuth from '@fastify/auth';
 import fastifySensible from '@fastify/sensible';
+import { setupWebSocketServer } from './services/webSocketService';
 
 // __dirname is available in CommonJS modules by default
 
@@ -71,6 +73,7 @@ async function setupApp() {
   // Register auth routes
   app.register(authRoutes, { prefix: '/api/auth' });
   app.register(imageRoutes, { prefix: '/api/images' });
+  app.register(notificationRoutes, { prefix: '/api/internal' }); // Added route
 
   // Register Swagger
   app.register(swagger, {
@@ -102,6 +105,9 @@ async function setupApp() {
 const start = async () => {
   try {
     await setupApp(); // Call the setup function
+
+    // Initialize WebSocket Server after app setup but before listen
+    setupWebSocketServer(app.server, app);
 
     await app.listen({ port: 3000 });
     console.log('Server is running at http://localhost:3000');
