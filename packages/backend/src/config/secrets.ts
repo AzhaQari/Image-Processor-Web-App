@@ -45,16 +45,21 @@ export async function loadSecrets(): Promise<void> {
   // Ensure GCP_PROJECT_ID is loaded first, as it's needed to construct full secret names
   // For local development, ensure GOOGLE_APPLICATION_CREDENTIALS is set, or you are logged in via gcloud auth application-default login
   // Alternatively, for explicit project ID in code (less common for secret paths):
-  const gcpProjectIdEnv = process.env.GCP_PROJECT_ID;
-  if (!gcpProjectIdEnv) {
-    console.warn('GCP_PROJECT_ID environment variable is not set. Attempting to fetch from Secret Manager.');
-    // If GCP_PROJECT_ID itself is in Secret Manager and you know its full path without needing it for others
-    // This assumes GCP_PROJECT_ID secret name is just "GCP_PROJECT_ID" and it's in the default project configured for the client
-    const tempProjectId = await accessSecretVersion(`projects/${process.env.GOOGLE_CLOUD_PROJECT || 'YOUR_GCP_PROJECT_ID_FALLBACK'}/secrets/GCP_PROJECT_ID/versions/latest`);
-    if (!tempProjectId) throw new Error('Critical: GCP_PROJECT_ID could not be determined from env or Secret Manager.');
-    appConfig.gcpProjectId = tempProjectId;
-  } else {
-    appConfig.gcpProjectId = gcpProjectIdEnv;
+  console.warn('GCP_PROJECT_ID environment variable is not set. Attempting to fetch from Secret Manager.');
+  // If GCP_PROJECT_ID itself is in Secret Manager and you know its full path without needing it for others
+  try {
+    // Try to load from environment variables first
+    const projectId = process.env.GCP_PROJECT_ID;
+    if (projectId) {
+      appConfig.gcpProjectId = projectId;
+      console.log(`Using project ID from environment: ${projectId}`);
+    } else {
+      // As a last resort, prompt user to set environment variable
+      throw new Error('GCP_PROJECT_ID not found. Please set GCP_PROJECT_ID or GOOGLE_CLOUD_PROJECT environment variable.');
+    }
+  } catch (error) {
+    console.error('Failed to determine GCP project ID:', error);
+    throw new Error('Critical: GCP_PROJECT_ID could not be determined. Please set GCP_PROJECT_ID environment variable.');
   }
 
   const projectId = appConfig.gcpProjectId;
@@ -70,7 +75,7 @@ export async function loadSecrets(): Promise<void> {
     { key: 'gcsBucketName', name: 'GCS_BUCKET_NAME', required: true },
     { key: 'sessionSecret', name: 'SESSION_SECRET', required: true },
     // GCP_PROJECT_ID is already handled
-    // { key: 'gcsServiceAccountKeyJson', name: 'GCS_SERVICE_ACCOUNT_KEY_JSON', required: false }, // Optional
+    { key: 'gcsServiceAccountKeyJson', name: 'GCS_SERVICE_ACCOUNT_KEY_JSON', required: true },
   ];
 
   for (const secretInfo of secretsToLoad) {
@@ -85,7 +90,7 @@ export async function loadSecrets(): Promise<void> {
   }
 
   // Validate that required secrets are loaded
-  if (!appConfig.googleClientId || !appConfig.googleClientSecret || !appConfig.gcsBucketName || !appConfig.sessionSecret) {
+  if (!appConfig.googleClientId || !appConfig.googleClientSecret || !appConfig.gcsBucketName || !appConfig.sessionSecret || !appConfig.gcsServiceAccountKeyJson) {
     throw new Error('One or more required application secrets could not be loaded. Check logs.');
   }
 

@@ -12,5 +12,8 @@
   "description": "",
   "devDependencies": {
     "openapi-typescript-codegen": "^0.29.0"
+  },
+  "dependencies": {
+    "@fastify/auth": "^5.0.2"
   }
 }

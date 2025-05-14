@@ -34,4 +34,20 @@ export class ImagesService {
             },
         });
     }
+    /**
+     * List user's images
+     * Retrieves a list of image metadata records uploaded by the authenticated user, sorted by most recent.
+     * @returns ImageMetadata Successfully retrieved list of image metadata.
+     * @throws ApiError
+     */
+    public static getApiImages(): CancelablePromise<Array<ImageMetadata>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/images',
+            errors: {
+                401: `Unauthorized.`,
+                500: `Internal server error.`,
+            },
+        });
+    }
 }

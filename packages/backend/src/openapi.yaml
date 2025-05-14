@@ -1,77 +1,200 @@
 openapi: 3.0.0
 info:
   title: Image Processor API
-  version: 1.0.0
+  version: '1.0.0'
   description: API for uploading, processing, and managing images.
 
+servers:
+  - url: http://localhost:3000 # Development server
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the user.
+          example: '12345xyz'
+        email:
+          type: string
+          format: email
+          description: User's email address.
+          example: user@example.com
+        name:
+          type: string
+          description: User's display name.
+          example: 'John Doe'
+    ImageMetadata:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the image metadata record.
+        userId:
+          type: string
+          description: Identifier of the user who uploaded the image.
+        fileName:
+          type: string
+          description: Original name of the uploaded file.
+        gcsPath:
+          type: string
+          description: Path to the image file in Google Cloud Storage.
+        contentType:
+          type: string
+          description: MIME type of the image.
+        size:
+          type: integer
+          format: int64
+          description: Size of the image in bytes.
+        uploadTimestamp:
+          type: string
+          format: date-time
+          description: Timestamp of when the image was uploaded.
+        status:
+          type: string
+          enum: [uploaded, processing, processed, failed]
+          description: Current status of the image.
+      required:
+        - id
+        - userId
+        - fileName
+        - gcsPath
+        - contentType
+        - uploadTimestamp
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+
+  securitySchemes:
+    cookieAuth: # Replaces bearerAuth as we are using session cookies
+      type: apiKey
+      in: cookie
+      name: connect.sid # Default name for @fastify/session cookie, adjust if different
+
+security:
+  - cookieAuth: []
+
 paths:
-  /auth/google:
-    post:
-      summary: Initiate Google OAuth flow
+  /api/auth/google:
+    get: # Changed from POST to GET
+      summary: Initiate Google OAuth2 login
+      description: Redirects the user to Google's OAuth2 consent screen.
+      tags:
+        - Authentication
       responses:
         '302':
-          description: Redirect to Google's OAuth consent screen.
+          description: Redirect to Google OAuth2 consent screen.
         '500':
-          description: Internal Server Error
+          description: Server error if OAuth credentials are not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/google/callback:
+  /api/auth/google/callback:
     get:
-      summary: Handle Google OAuth callback
+      summary: Handle Google OAuth2 callback
+      description: Handles the callback from Google after user authentication. Exchanges code for tokens, fetches profile, creates/finds user, sets session, and redirects to frontend.
+      tags:
+        - Authentication
       parameters:
         - name: code
           in: query
           required: true
-          description: Authorization code from Google.
+          description: The authorization code from Google.
           schema:
             type: string
         - name: state
           in: query
-          required: false # Often used, but let's keep it optional for now
-          description: An opaque value used to maintain state between the request and callback.
+          required: false
+          description: An optional state parameter for CSRF protection (if used).
           schema:
             type: string
       responses:
         '302':
-          description: Redirect to frontend dashboard on success.
+          description: Redirect to frontend dashboard on successful authentication.
         '400':
-          description: Bad Request (e.g., missing code)
-        '500':
-          description: Internal Server Error
-
-  /auth/logout:
-    post:
-      summary: Log out the current user
-      responses:
-        '200':
-          description: Successfully logged out.
-        '500':
-          description: Internal Server Error
-
-  /users/me:
-    get:
-      summary: Get current user's profile
-      security:
-        - cookieAuth: [] # Placeholder for session/cookie based auth
-      responses:
-        '200':
-          description: User profile data.
+          description: Bad request, e.g., missing authorization code.
           content:
             application/json:
               schema:
-                type: object # Define user schema later
-                properties:
-                  id:
-                    type: string
-                  email:
-                    type: string
-                  name:
-                    type: string
-        '401':
-          description: Unauthorized
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error during OAuth callback processing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /images/upload:
+  /api/auth/logout:
+    post:
+      summary: Logout user
+      description: Destroys the current user's session.
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Successfully logged out.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Successfully logged out
+        '400':
+          description: Bad request, e.g., user not logged in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error during logout.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/me:
+    get:
+      summary: Get current user profile
+      description: Retrieves the profile of the currently authenticated user.
+      tags:
+        - Authentication
+        - Users
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Successfully retrieved user profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized, user not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/images/upload: # New endpoint
     post:
       summary: Upload an image
+      description: Allows authenticated users to upload an image file. The file will be stored in GCS and metadata saved.
+      tags:
+        - Images
       security:
         - cookieAuth: []
       requestBody:
@@ -81,39 +204,89 @@ paths:
             schema:
               type: object
               properties:
-                image:
+                file: # Name of the form field for the file
                   type: string
                   format: binary
+                  description: The image file to upload.
+              required:
+                - file
       responses:
         '201':
           description: Image uploaded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageMetadata'
         '400':
-          description: Bad Request (e.g., no file, invalid file type)
+          description: Bad request (e.g., no file, invalid file type).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal Server Error
+          description: Internal server error (e.g., GCS upload failure, config error).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /images:
+  /api/images: # New path for listing images
     get:
       summary: List user's images
+      description: Retrieves a list of image metadata records uploaded by the authenticated user, sorted by most recent.
+      tags:
+        - Images
       security:
         - cookieAuth: []
       responses:
         '200':
-          description: A list of images.
+          description: Successfully retrieved list of image metadata.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  type: object # Define image schema later
+                  $ref: '#/components/schemas/ImageMetadata'
         '401':
-          description: Unauthorized
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-components:
-  securitySchemes:
-    cookieAuth: # Define how cookie authentication works
-      type: apiKey # Using apiKey type to represent session cookie for OpenAPI document purposes
-      in: cookie
-      name: sessionId # Name of the cookie, e.g., 'sessionId' or connect.sid 
+# Placeholder for GET /api/images
+# /api/images:
+#   get:
+#     summary: List user's images
+#     description: Retrieves a list of images uploaded by the authenticated user.
+#     tags:
+#       - Images
+#     security:
+#       - cookieAuth: []
+#     responses:
+#       '200':
+#         description: Successfully retrieved list of images.
+#         content:
+#           application/json:
+#             schema:
+#               type: array
+#               items:
+#                 $ref: '#/components/schemas/ImageMetadata'
+#       '401':
+#         description: Unauthorized.
+#         content:
+#           application/json:
+#             schema:
+#               $ref: '#/components/schemas/ErrorResponse' 
