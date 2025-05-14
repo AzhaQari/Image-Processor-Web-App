@@ -360,11 +360,11 @@ export function ImageList() {
         )}
       </Card>
       
-      <footer className="mt-12 text-center text-slate-500 text-sm">
+      {/* <footer className="mt-120 text-center text-slate-500 text-sm">
         <div className="font-semibold mb-1">Image Processor</div>
         <div className="mb-1">Image Processor Web App © 2025</div>
         <div className="text-xs">Secure cloud-based image processing</div>
-      </footer>
+      </footer> */}
     </div>
   );
 } 

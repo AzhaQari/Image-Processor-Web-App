@@ -12,8 +12,8 @@ function App() {
     <AuthProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route
-          path="/dashboard"
+        <Route 
+          path="/dashboard" 
           element={
             <ProtectedRoute>
               <DashboardLayout />
