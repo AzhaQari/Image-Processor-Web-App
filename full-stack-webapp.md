@@ -117,6 +117,7 @@ Optional: You may containerize or provide Docker files if you wish, but it’s n
     - Discuss any design tradeoffs (why OpenAPI + tRPC, how you handle real-time updates, etc.).
 3.	Challenges & Tradeoffs
     - Explain any particular difficulties with GCP services.
+        getting gcs to communicate with my backend via websockets was tricky, i either had to use ngrok or setup GCF pub/sub publisher which didn't seem necessary for this project
     - Discuss how you tackled the combination of custom code, generated SDK, and tRPC.
 
 ⸻

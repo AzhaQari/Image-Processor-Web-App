@@ -27,7 +27,6 @@ export function ImageList() {
       try {
         setIsLoading(true);
         setError(null);
-        // TODO: Replace with SDK call
         const response = await fetch('http://localhost:3000/api/images', {
           credentials: 'include'
         });
@@ -48,88 +47,8 @@ export function ImageList() {
     fetchImages();
   }, []);
 
-  useEffect(() => {
-    console.log('Setting up image status update subscription in ImageList');
-    
-    const unsubscribe = subscribeToImageStatusUpdates((statusUpdate) => {
-      console.log('📱 Received image status update in ImageList:', statusUpdate);
-      console.log(`📊 Status: ${statusUpdate.status}, ID: ${statusUpdate.id}, FileName: ${statusUpdate.fileName}`);
-      
-      setImages(prevImages => {
-        // Check if we already have this image
-        const existing = prevImages.find(img => img.id === statusUpdate.id);
-        
-        if (existing) {
-          console.log(`✏️ Updating existing image ${statusUpdate.id} from status ${existing.status} to ${statusUpdate.status}`);
-          // Update existing image
-          return prevImages.map(img => 
-            img.id === statusUpdate.id 
-              ? { ...img, status: statusUpdate.status } 
-              : img
-          );
-        } else {
-          console.log(`🆕 Image ${statusUpdate.id} not found in current list, may be a new upload`);
-          // If this is a new image that's not in our list yet, we might want to refresh the list
-          // For simplicity, we'll just return the current list, but you could also fetch the updated list
-          return prevImages;
-        }
-      });
-      
-      // Show toast notification
-      let toastType: 'info' | 'success' | 'warning' | 'error' = 'info';
-      let toastTitle = '';
-      let toastDescription = '';
-      
-      switch (statusUpdate.status) {
-        case 'processing':
-          console.log('🔄 Preparing PROCESSING toast in ImageList');
-          toastType = 'info';
-          toastTitle = `⏳ Processing ${statusUpdate.fileName}`;
-          toastDescription = 'Your image is being processed...';
-          break;
-        case 'processed':
-          console.log('✨ Preparing PROCESSED toast in ImageList');
-          toastType = 'success';
-          toastTitle = `✅ ${statusUpdate.fileName} Processed!`;
-          toastDescription = 'Your image has been successfully processed.';
-          break;
-        case 'failed':
-          console.log('💥 Preparing FAILED toast in ImageList');
-          toastType = 'error';
-          toastTitle = `❌ ${statusUpdate.fileName} Failed`;
-          toastDescription = statusUpdate.errorMessage || 'An error occurred during processing.';
-          break;
-        default:
-          console.log(`⚠️ Unknown status: ${statusUpdate.status}, using default toast type`);
-      }
-      
-      console.log(`🚀 Showing ${toastType.toUpperCase()} toast: ${toastTitle}`);
-      
-      // Use the new standalone toast implementation
-      showToast({
-        title: toastTitle,
-        toastMsg: toastDescription,
-        position: "top-right",
-        type: toastType,
-        showProgress: true,
-        autoCloseTime: toastType === 'error' ? 8000 : 5000,
-        pauseOnHover: true,
-        pauseOnFocusLoss: true,
-        canClose: true,
-        theme: "light"
-      });
-    });
-    
-    return () => {
-      console.log('Cleaning up image status update subscription in ImageList');
-      unsubscribe();
-    };
-  }, [subscribeToImageStatusUpdates]);
-
   const handleDownload = async (image: ImageMetadata) => {
     if (!image.signedUrl) {
-      // Show toast instead of alert
-      // Use the new standalone toast implementation
       showToast({
         title: "❌ No Download URL",
         toastMsg: "No download URL available for this image.",
@@ -140,7 +59,7 @@ export function ImageList() {
         pauseOnHover: true,
         pauseOnFocusLoss: true,
         canClose: true,
-        theme: "light"
+        theme: "dark"
       });
       return;
     }
@@ -157,8 +76,6 @@ export function ImageList() {
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
       
-      // Show success toast
-      // Use the new standalone toast implementation
       showToast({
         title: "✅ Download Successful",
         toastMsg: `${image.fileName} has been downloaded.`,
@@ -169,11 +86,10 @@ export function ImageList() {
         pauseOnHover: true,
         pauseOnFocusLoss: true,
         canClose: true,
-        theme: "light"
+        theme: "dark"
       });
     } catch (err) {
       console.error('Download error:', err);
-      // Use the new standalone toast implementation
       showToast({
         title: "❌ Download Failed",
         toastMsg: err instanceof Error ? err.message : 'Could not download image.',
@@ -184,24 +100,19 @@ export function ImageList() {
         pauseOnHover: true,
         pauseOnFocusLoss: true,
         canClose: true,
-        theme: "light"
+        theme: "dark"
       });
     }
   };
 
   const handleDelete = async (imageId: string, gcsPath: string) => {
-    // Show confirmation toast
     if (!window.confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
       return;
     }
     try {
-      // TODO: Replace with actual SDK call to backend
       const response = await fetch(`http://localhost:3000/api/images/${imageId}`, {
         method: 'DELETE',
         credentials: 'include',
-        // Potentially send gcsPath in body if needed by backend for GCS deletion
-        // headers: { 'Content-Type': 'application/json' },
-        // body: JSON.stringify({ gcsPath }) 
       });
 
       if (!response.ok) {
@@ -210,8 +121,6 @@ export function ImageList() {
       }
 
       setImages(prevImages => prevImages.filter(img => img.id !== imageId));
-      // Show success toast
-      // Use the new standalone toast implementation
       showToast({
         title: "✅ Image Deleted",
         toastMsg: "Image deleted successfully.",
@@ -222,12 +131,11 @@ export function ImageList() {
         pauseOnHover: true,
         pauseOnFocusLoss: true,
         canClose: true,
-        theme: "light"
+        theme: "dark"
       });
 
     } catch (err) {
       console.error('Delete error:', err);
-      // Use the new standalone toast implementation
       showToast({
         title: "❌ Delete Failed",
         toastMsg: err instanceof Error ? err.message : 'Could not delete image.',
@@ -238,7 +146,7 @@ export function ImageList() {
         pauseOnHover: true,
         pauseOnFocusLoss: true,
         canClose: true,
-        theme: "light"
+        theme: "dark"
       });
     }
   };

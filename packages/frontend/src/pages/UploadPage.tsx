@@ -7,9 +7,7 @@ import { ImageMetadata } from '@/sdk'; // Assuming SDK index exports models
 import { ApiError } from '@/sdk'; // Assuming SDK index exports ApiError
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { useWebSocket } from '@/contexts/WebSocketContext';
-import { toast } from '@/hooks/use-toast';
 import showToast from '@/lib/toastify';
-import { TestToast } from '@/components/TestToast';
 
 const UploadPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,53 +41,18 @@ const UploadPage: React.FC = () => {
       if (statusUpdate.id === uploadedImage.id) {
         console.log('✅ IDs match, updating uploadedImage status to:', statusUpdate.status);
         
-        // Update the uploaded image status
         setUploadedImage(prev => {
           if (!prev) return null;
           console.log('Updating image from status', prev.status, 'to', statusUpdate.status);
           return {
             ...prev,
-            status: statusUpdate.status as any // Cast to any to fix type incompatibility
+            status: statusUpdate.status as any
           };
         });
         
-        // Show toast notification based on status
-        if (statusUpdate.status === 'processing') {
-          console.log('⏳ Showing PROCESSING toast notification');
-          
-          // Use the new standalone toast implementation
-          showToast({
-            title: "⏳ Processing Image",
-            toastMsg: `${statusUpdate.fileName} is being processed...`,
-            position: "top-right",
-            type: "info",
-            showProgress: true,
-            autoCloseTime: 5000,
-            pauseOnHover: true,
-            pauseOnFocusLoss: true,
-            canClose: true,
-            theme: "light"
-          });
-        } else if (statusUpdate.status === 'processed') {
-          console.log('🎉 Showing PROCESSED toast notification');
-          
-          // Use the new standalone toast implementation
-          showToast({
-            title: "✅ Image Processed!",
-            toastMsg: `${statusUpdate.fileName} has been successfully processed.`,
-            position: "top-right",
-            type: "success",
-            showProgress: true,
-            autoCloseTime: 5000,
-            pauseOnHover: true,
-            pauseOnFocusLoss: true,
-            canClose: true,
-            theme: "light"
-          });
-        } else if (statusUpdate.status === 'failed') {
-          console.log('❌ Showing FAILED toast notification');
-          
-          // Use the new standalone toast implementation
+        // Only show toast for 'failed' status from WebSocket
+        if (statusUpdate.status === 'failed') {
+          console.log('❌ Showing FAILED toast notification from WebSocket');
           showToast({
             title: "❌ Processing Failed",
             toastMsg: statusUpdate.errorMessage || 'An unknown error occurred during processing.',
@@ -100,10 +63,10 @@ const UploadPage: React.FC = () => {
             pauseOnHover: true,
             pauseOnFocusLoss: true,
             canClose: true,
-            theme: "light"
+            theme: "dark" // Changed to dark
           });
         } else {
-          console.log(`⚠️ Unknown status: ${statusUpdate.status}, not showing any toast`);
+          console.log(`ℹ️ WebSocket status update: ${statusUpdate.status}, no toast shown.`);
         }
       } else {
         console.log('❌ WebSocket update is for a different image, ignoring');
@@ -168,7 +131,6 @@ const UploadPage: React.FC = () => {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      // Use the new standalone toast implementation
       showToast({
         title: "⚠️ No File Selected",
         toastMsg: "Please select a file first.",
@@ -179,7 +141,7 @@ const UploadPage: React.FC = () => {
         pauseOnHover: true,
         pauseOnFocusLoss: true,
         canClose: true,
-        theme: "light"
+        theme: "dark" // Changed to dark
       });
       return;
     }
@@ -191,19 +153,17 @@ const UploadPage: React.FC = () => {
       const response = await ImagesService.postApiImagesUpload({ file: selectedFile });
       setUploadedImage(response);
       
-      // Show a toast notification that the image is being uploaded
-      // Use the new standalone toast implementation
       showToast({
-        title: '🎉 Image Uploaded!',
-        toastMsg: `${response.fileName} has been uploaded and is now being processed.`,
+        title: '✅ Image Uploaded & Processed!', // Updated title
+        toastMsg: `${response.fileName} has been uploaded and processed successfully.`, // Updated message
         position: "top-right",
-        type: "info",
+        type: "success", // Changed to success
         showProgress: true,
         autoCloseTime: 5000,
         pauseOnHover: true,
         pauseOnFocusLoss: true,
         canClose: true,
-        theme: "light"
+        theme: "dark" // Changed to dark
       });
       
       // Reset file input and preview
@@ -215,7 +175,6 @@ const UploadPage: React.FC = () => {
       
     } catch (error) {
       if (error instanceof ApiError) {
-        // Use the new standalone toast implementation
         showToast({
           title: "❌ Upload Failed",
           toastMsg: error.body?.message || error.message,
@@ -226,10 +185,9 @@ const UploadPage: React.FC = () => {
           pauseOnHover: true,
           pauseOnFocusLoss: true,
           canClose: true,
-          theme: "light"
+          theme: "dark" // Changed to dark
         });
       } else if (error instanceof Error) {
-        // Use the new standalone toast implementation
         showToast({
           title: "❌ Upload Failed",
           toastMsg: error.message,
@@ -240,10 +198,9 @@ const UploadPage: React.FC = () => {
           pauseOnHover: true,
           pauseOnFocusLoss: true,
           canClose: true,
-          theme: "light"
+          theme: "dark" // Changed to dark
         });
       } else {
-        // Use the new standalone toast implementation
         showToast({
           title: "❌ Upload Failed",
           toastMsg: "An unknown error occurred during upload.",
@@ -254,7 +211,7 @@ const UploadPage: React.FC = () => {
           pauseOnHover: true,
           pauseOnFocusLoss: true,
           canClose: true,
-          theme: "light"
+          theme: "dark" // Changed to dark
         });
       }
       console.error('Upload error:', error);
@@ -273,9 +230,6 @@ const UploadPage: React.FC = () => {
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-slate-800">Upload Images</h1>
-        <div className="ml-auto">
-          <TestToast />
-        </div>
       </div>
       
       <Card className="bg-white shadow-md border-indigo-100 overflow-hidden transition-all hover:shadow-lg">
