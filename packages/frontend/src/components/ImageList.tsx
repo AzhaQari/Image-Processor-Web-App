@@ -2,22 +2,17 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardFooter } from './ui/card';
 import { Badge } from '../components/ui/badge';
 import { useWebSocket } from '@/contexts/WebSocketContext';
-import { toast } from '@/hooks/use-toast';
 import showToast from '@/lib/toastify';
+import { ImagesService, ApiError, ImageMetadata as SDKImageMetadata } from '@/sdk';
+import { Button } from './ui/button';
+import defaultImage from '@/assets/default-placeholder.png';
 
-interface ImageMetadata {
-  id: string;
-  fileName: string;
-  contentType: string;
-  size: number;
-  uploadTimestamp: string;
-  status: 'uploaded' | 'processing' | 'processed' | 'failed';
-  gcsPath: string;
+interface DisplayImageMetadata extends SDKImageMetadata {
   signedUrl?: string;
 }
 
 export function ImageList() {
-  const [images, setImages] = useState<ImageMetadata[]>([]);
+  const [images, setImages] = useState<DisplayImageMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { subscribeToImageStatusUpdates } = useWebSocket();
@@ -27,18 +22,23 @@ export function ImageList() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch('http://localhost:3000/api/images', {
-          credentials: 'include'
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch images');
-        }
-        
-        const data = await response.json();
-        setImages(data);
+        const sdkData: SDKImageMetadata[] = await ImagesService.getApiImages();
+        const displayData: DisplayImageMetadata[] = sdkData.map(image => ({
+          ...image,
+          signedUrl: (image as any).signedUrl as string | undefined,
+        }));
+        setImages(displayData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load images');
+        if (err instanceof ApiError) {
+          console.error('Failed to fetch images (ApiError):', err.body);
+          setError(err.body?.message || 'Failed to load images');
+        } else if (err instanceof Error) {
+          console.error('Failed to fetch images (Error):', err.message);
+          setError(err.message);
+        } else {
+          console.error('Failed to fetch images (Unknown Error):', err);
+          setError('An unknown error occurred while loading images');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -47,7 +47,38 @@ export function ImageList() {
     fetchImages();
   }, []);
 
-  const handleDownload = async (image: ImageMetadata) => {
+  useEffect(() => {
+    const unsubscribe = subscribeToImageStatusUpdates((statusUpdate) => {
+      setImages(prevImages => 
+        prevImages.map(img => 
+          img.id === statusUpdate.id 
+          ? { 
+              ...img, 
+              status: statusUpdate.status as DisplayImageMetadata['status'], 
+            } 
+          : img
+        )
+      );
+      if (statusUpdate.status === 'processed') {
+        showToast({
+            title: "🖼️ Image Processed",
+            toastMsg: `${statusUpdate.fileName} has been processed.`,
+            type: "info",
+            theme: "dark"
+        });
+      } else if (statusUpdate.status === 'failed') {
+        showToast({
+            title: "❌ Processing Failed",
+            toastMsg: statusUpdate.errorMessage || `Processing failed for ${statusUpdate.fileName}.`,
+            type: "error",
+            theme: "dark"
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, [subscribeToImageStatusUpdates]);
+
+  const handleDownload = async (image: DisplayImageMetadata) => {
     if (!image.signedUrl) {
       showToast({
         title: "❌ No Download URL",
@@ -78,7 +109,7 @@ export function ImageList() {
       
       showToast({
         title: "✅ Download Successful",
-        toastMsg: `${image.fileName} has been downloaded.`,
+        toastMsg: `${image.fileName || 'Image'} has been downloaded.`,
         position: "top-right",
         type: "success",
         showProgress: true,
@@ -93,52 +124,6 @@ export function ImageList() {
       showToast({
         title: "❌ Download Failed",
         toastMsg: err instanceof Error ? err.message : 'Could not download image.',
-        position: "top-right",
-        type: "error",
-        showProgress: true,
-        autoCloseTime: 8000,
-        pauseOnHover: true,
-        pauseOnFocusLoss: true,
-        canClose: true,
-        theme: "dark"
-      });
-    }
-  };
-
-  const handleDelete = async (imageId: string, gcsPath: string) => {
-    if (!window.confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
-      return;
-    }
-    try {
-      const response = await fetch(`http://localhost:3000/api/images/${imageId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to delete image. Server response not readable.' }));
-        throw new Error(errorData.message || `Failed to delete image. Status: ${response.status}`);
-      }
-
-      setImages(prevImages => prevImages.filter(img => img.id !== imageId));
-      showToast({
-        title: "✅ Image Deleted",
-        toastMsg: "Image deleted successfully.",
-        position: "top-right",
-        type: "success",
-        showProgress: true,
-        autoCloseTime: 5000,
-        pauseOnHover: true,
-        pauseOnFocusLoss: true,
-        canClose: true,
-        theme: "dark"
-      });
-
-    } catch (err) {
-      console.error('Delete error:', err);
-      showToast({
-        title: "❌ Delete Failed",
-        toastMsg: err instanceof Error ? err.message : 'Could not delete image.',
         position: "top-right",
         type: "error",
         showProgress: true,
@@ -323,7 +308,7 @@ export function ImageList() {
                               }}
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
-                                target.src = 'https://via.placeholder.com/100?text=Error';
+                                target.src = defaultImage;
                               }}
                             />
                           ) : (
@@ -359,7 +344,7 @@ export function ImageList() {
                               <polyline points="17 8 12 3 7 8" />
                               <line x1="12" y1="3" x2="12" y2="15" />
                             </svg>
-                            <span>Size: {formatFileSize(image.size)}</span>
+                            <span>Size: {formatFileSize(image.size ?? 0)}</span>
                           </div>
                           <div className="text-xs flex items-center gap-1 text-slate-600">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -383,18 +368,6 @@ export function ImageList() {
                               <line x1="12" y1="15" x2="12" y2="3"></line>
                             </svg>
                           </button>
-                          <button
-                            onClick={() => handleDelete(image.id, image.gcsPath)}
-                            title="Delete image"
-                            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-100 rounded-md transition-colors"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="3 6 5 6 21 6"></polyline>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                              <line x1="10" y1="11" x2="10" y2="17"></line>
-                              <line x1="14" y1="11" x2="14" y2="17"></line>
-                            </svg>
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -408,18 +381,9 @@ export function ImageList() {
         {images.length > 0 && (
           <CardFooter className="bg-slate-50 border-t border-slate-100 text-xs text-slate-500 px-6 py-6 mt-8 flex justify-between items-center">
             <div>Showing all {images.length} images • Sorted by newest first</div>
-            {/* <div className="text-indigo-600 font-medium">
-              Chart View
-            </div> */}
           </CardFooter>
         )}
       </Card>
-      
-      {/* <footer className="mt-120 text-center text-slate-500 text-sm">
-        <div className="font-semibold mb-1">Image Processor</div>
-        <div className="mb-1">Image Processor Web App © 2025</div>
-        <div className="text-xs">Secure cloud-based image processing</div>
-      </footer> */}
     </div>
   );
 } 
