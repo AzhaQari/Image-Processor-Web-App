@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardFooter } from './ui/card';
 import { Badge } from '../components/ui/badge';
+import { useWebSocket } from '@/contexts/WebSocketContext';
+import { toast } from '@/hooks/use-toast';
+import showToast from '@/lib/toastify';
 
 interface ImageMetadata {
   id: string;
@@ -17,13 +20,13 @@ export function ImageList() {
   const [images, setImages] = useState<ImageMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { subscribeToImageStatusUpdates } = useWebSocket();
 
   useEffect(() => {
     const fetchImages = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        // TODO: Replace with SDK call
         const response = await fetch('http://localhost:3000/api/images', {
           credentials: 'include'
         });
@@ -46,7 +49,18 @@ export function ImageList() {
 
   const handleDownload = async (image: ImageMetadata) => {
     if (!image.signedUrl) {
-      alert('No download URL available for this image.'); // Or trigger backend to generate one
+      showToast({
+        title: "❌ No Download URL",
+        toastMsg: "No download URL available for this image.",
+        position: "top-right",
+        type: "warning",
+        showProgress: true,
+        autoCloseTime: 5000,
+        pauseOnHover: true,
+        pauseOnFocusLoss: true,
+        canClose: true,
+        theme: "dark"
+      });
       return;
     }
     try {
@@ -61,9 +75,33 @@ export function ImageList() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
+      
+      showToast({
+        title: "✅ Download Successful",
+        toastMsg: `${image.fileName} has been downloaded.`,
+        position: "top-right",
+        type: "success",
+        showProgress: true,
+        autoCloseTime: 3000,
+        pauseOnHover: true,
+        pauseOnFocusLoss: true,
+        canClose: true,
+        theme: "dark"
+      });
     } catch (err) {
       console.error('Download error:', err);
-      alert(err instanceof Error ? err.message : 'Could not download image.');
+      showToast({
+        title: "❌ Download Failed",
+        toastMsg: err instanceof Error ? err.message : 'Could not download image.',
+        position: "top-right",
+        type: "error",
+        showProgress: true,
+        autoCloseTime: 8000,
+        pauseOnHover: true,
+        pauseOnFocusLoss: true,
+        canClose: true,
+        theme: "dark"
+      });
     }
   };
 
@@ -72,13 +110,9 @@ export function ImageList() {
       return;
     }
     try {
-      // TODO: Replace with actual SDK call to backend
       const response = await fetch(`http://localhost:3000/api/images/${imageId}`, {
         method: 'DELETE',
         credentials: 'include',
-        // Potentially send gcsPath in body if needed by backend for GCS deletion
-        // headers: { 'Content-Type': 'application/json' },
-        // body: JSON.stringify({ gcsPath }) 
       });
 
       if (!response.ok) {
@@ -87,12 +121,33 @@ export function ImageList() {
       }
 
       setImages(prevImages => prevImages.filter(img => img.id !== imageId));
-      // Optionally show a success toast/notification
-      alert('Image deleted successfully.');
+      showToast({
+        title: "✅ Image Deleted",
+        toastMsg: "Image deleted successfully.",
+        position: "top-right",
+        type: "success",
+        showProgress: true,
+        autoCloseTime: 5000,
+        pauseOnHover: true,
+        pauseOnFocusLoss: true,
+        canClose: true,
+        theme: "dark"
+      });
 
     } catch (err) {
       console.error('Delete error:', err);
-      alert(err instanceof Error ? err.message : 'Could not delete image.');
+      showToast({
+        title: "❌ Delete Failed",
+        toastMsg: err instanceof Error ? err.message : 'Could not delete image.',
+        position: "top-right",
+        type: "error",
+        showProgress: true,
+        autoCloseTime: 8000,
+        pauseOnHover: true,
+        pauseOnFocusLoss: true,
+        canClose: true,
+        theme: "dark"
+      });
     }
   };
 
@@ -353,9 +408,9 @@ export function ImageList() {
         {images.length > 0 && (
           <CardFooter className="bg-slate-50 border-t border-slate-100 text-xs text-slate-500 px-6 py-6 mt-8 flex justify-between items-center">
             <div>Showing all {images.length} images • Sorted by newest first</div>
-            <div className="text-indigo-600 font-medium">
+            {/* <div className="text-indigo-600 font-medium">
               Chart View
-            </div>
+            </div> */}
           </CardFooter>
         )}
       </Card>

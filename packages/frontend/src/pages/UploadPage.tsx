@@ -1,31 +1,88 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import type { ChangeEvent } from 'react'; // Type-only import
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ImagesService } from '@/sdk'; // Assuming SDK index exports services
 import { ImageMetadata } from '@/sdk'; // Assuming SDK index exports models
 import { ApiError } from '@/sdk'; // Assuming SDK index exports ApiError
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
+import { useWebSocket } from '@/contexts/WebSocketContext';
+import showToast from '@/lib/toastify';
 
 const UploadPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'success' | 'error' | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<ImageMetadata | null>(null);
   
   // For visual preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  
+  // WebSocket integration
+  const { subscribeToImageStatusUpdates } = useWebSocket();
+
+  // Subscribe to WebSocket updates for the currently uploaded image
+  useEffect(() => {
+    if (!uploadedImage) {
+      console.log('No uploadedImage to track for processing updates');
+      return;
+    }
+    
+    console.log('Setting up WebSocket subscription for image:', uploadedImage);
+    console.log('Current image status:', uploadedImage.status);
+    
+    const unsubscribe = subscribeToImageStatusUpdates((statusUpdate) => {
+      console.log('🔔 Received image status update in UploadPage:', statusUpdate);
+      console.log(`📋 Status: ${statusUpdate.status}, ID: ${statusUpdate.id}, FileName: ${statusUpdate.fileName}`);
+      console.log('Current uploadedImage:', uploadedImage);
+      console.log('Comparing IDs:', statusUpdate.id, uploadedImage.id, statusUpdate.id === uploadedImage.id);
+      
+      if (statusUpdate.id === uploadedImage.id) {
+        console.log('✅ IDs match, updating uploadedImage status to:', statusUpdate.status);
+        
+        setUploadedImage(prev => {
+          if (!prev) return null;
+          console.log('Updating image from status', prev.status, 'to', statusUpdate.status);
+          return {
+            ...prev,
+            status: statusUpdate.status as any
+          };
+        });
+        
+        // Only show toast for 'failed' status from WebSocket
+        if (statusUpdate.status === 'failed') {
+          console.log('❌ Showing FAILED toast notification from WebSocket');
+          showToast({
+            title: "❌ Processing Failed",
+            toastMsg: statusUpdate.errorMessage || 'An unknown error occurred during processing.',
+            position: "top-right",
+            type: "error",
+            showProgress: true,
+            autoCloseTime: 8000,
+            pauseOnHover: true,
+            pauseOnFocusLoss: true,
+            canClose: true,
+            theme: "dark" // Changed to dark
+          });
+        } else {
+          console.log(`ℹ️ WebSocket status update: ${statusUpdate.status}, no toast shown.`);
+        }
+      } else {
+        console.log('❌ WebSocket update is for a different image, ignoring');
+      }
+    });
+    
+    return () => {
+      console.log('Cleaning up WebSocket subscription in UploadPage');
+      unsubscribe();
+    };
+  }, [uploadedImage, subscribeToImageStatusUpdates]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
       setSelectedFile(file);
-      setUploadStatus(null);
-      setStatusMessage('');
       setUploadedImage(null);
       
       // Create preview URL
@@ -54,8 +111,6 @@ const UploadPage: React.FC = () => {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       setSelectedFile(file);
-      setUploadStatus(null);
-      setStatusMessage('');
       setUploadedImage(null);
       
       // Create preview URL
@@ -76,21 +131,40 @@ const UploadPage: React.FC = () => {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setStatusMessage('Please select a file first.');
-      setUploadStatus('error');
+      showToast({
+        title: "⚠️ No File Selected",
+        toastMsg: "Please select a file first.",
+        position: "top-right",
+        type: "warning",
+        showProgress: true,
+        autoCloseTime: 5000,
+        pauseOnHover: true,
+        pauseOnFocusLoss: true,
+        canClose: true,
+        theme: "dark" // Changed to dark
+      });
       return;
     }
 
     setIsLoading(true);
-    setUploadStatus(null);
-    setStatusMessage('');
     setUploadedImage(null);
 
     try {
       const response = await ImagesService.postApiImagesUpload({ file: selectedFile });
       setUploadedImage(response);
-      setUploadStatus('success');
-      setStatusMessage(`Successfully uploaded ${response.fileName}!`);
+      
+      showToast({
+        title: '✅ Image Uploaded & Processed!', // Updated title
+        toastMsg: `${response.fileName} has been uploaded and processed successfully.`, // Updated message
+        position: "top-right",
+        type: "success", // Changed to success
+        showProgress: true,
+        autoCloseTime: 5000,
+        pauseOnHover: true,
+        pauseOnFocusLoss: true,
+        canClose: true,
+        theme: "dark" // Changed to dark
+      });
       
       // Reset file input and preview
       if (fileInputRef.current) {
@@ -100,13 +174,45 @@ const UploadPage: React.FC = () => {
       setPreviewUrl(null);
       
     } catch (error) {
-      setUploadStatus('error');
       if (error instanceof ApiError) {
-        setStatusMessage(`Upload failed: ${error.body?.message || error.message}`);
+        showToast({
+          title: "❌ Upload Failed",
+          toastMsg: error.body?.message || error.message,
+          position: "top-right",
+          type: "error",
+          showProgress: true,
+          autoCloseTime: 8000,
+          pauseOnHover: true,
+          pauseOnFocusLoss: true,
+          canClose: true,
+          theme: "dark" // Changed to dark
+        });
       } else if (error instanceof Error) {
-        setStatusMessage(`Upload failed: ${error.message}`);
+        showToast({
+          title: "❌ Upload Failed",
+          toastMsg: error.message,
+          position: "top-right",
+          type: "error",
+          showProgress: true,
+          autoCloseTime: 8000,
+          pauseOnHover: true,
+          pauseOnFocusLoss: true,
+          canClose: true,
+          theme: "dark" // Changed to dark
+        });
       } else {
-        setStatusMessage('An unknown error occurred during upload.');
+        showToast({
+          title: "❌ Upload Failed",
+          toastMsg: "An unknown error occurred during upload.",
+          position: "top-right",
+          type: "error",
+          showProgress: true,
+          autoCloseTime: 8000,
+          pauseOnHover: true,
+          pauseOnFocusLoss: true,
+          canClose: true,
+          theme: "dark" // Changed to dark
+        });
       }
       console.error('Upload error:', error);
     }
@@ -211,37 +317,6 @@ const UploadPage: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Status messages */}
-          {uploadStatus === 'success' && uploadedImage && (
-            <Alert variant="default" className="bg-green-50 border-green-200 text-green-800 animate-fadeIn">
-              <div className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                </svg>
-                <AlertTitle className="font-semibold">Success!</AlertTitle>
-              </div>
-              <AlertDescription className="mt-2 pl-6">
-                {statusMessage}
-              </AlertDescription>
-            </Alert>
-          )}
-          {uploadStatus === 'error' && (
-            <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800 animate-fadeIn">
-              <div className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                <AlertTitle className="font-semibold">Error</AlertTitle>
-              </div>
-              <AlertDescription className="mt-2 pl-6">
-                {statusMessage}
-              </AlertDescription>
-            </Alert>
-          )}
         </CardContent>
         
         <CardFooter className="bg-slate-50 border-t border-slate-100 text-xs text-slate-500 px-6 py-3 flex justify-between items-center">
