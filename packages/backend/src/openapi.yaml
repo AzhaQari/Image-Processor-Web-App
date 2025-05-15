@@ -6,6 +6,8 @@ info:
 
 servers:
   - url: http://localhost:3000 # Development server
+    description: Local development server
+  # Add other server URLs like staging or production if needed
 
 components:
   schemas:
@@ -14,36 +16,45 @@ components:
       properties:
         id:
           type: string
-          description: Unique identifier for the user.
-          example: '12345xyz'
+          description: User ID (usually Google ID).
         email:
           type: string
           format: email
-          description: User's email address.
-          example: user@example.com
         name:
           type: string
-          description: User's display name.
-          example: 'John Doe'
+          nullable: true
+        # photoUrl: 
+        #   type: string
+        #   format: url
+        #   nullable: true
     ImageMetadata:
       type: object
+      required:
+        - id
+        - userId
+        - fileName
+        - gcsPath
+        - contentType
+        - size
+        - uploadTimestamp
+        - status
       properties:
         id:
           type: string
           format: uuid
-          description: Unique identifier for the image metadata record.
+          description: Unique identifier for the image metadata.
         userId:
           type: string
-          description: Identifier of the user who uploaded the image.
+          description: ID of the user who uploaded the image.
         fileName:
           type: string
           description: Original name of the uploaded file.
         gcsPath:
           type: string
-          description: Path to the image file in Google Cloud Storage.
+          description: Path to the image file in Google Cloud Storage (e.g., gs://bucket-name/path/to/image.jpg).
         contentType:
           type: string
-          description: MIME type of the image.
+          description: MIME type of the image (e.g., image/jpeg).
         size:
           type: integer
           format: int64
@@ -55,15 +66,21 @@ components:
         status:
           type: string
           enum: [uploaded, processing, processed, failed]
-          description: Current status of the image.
-      required:
-        - id
-        - userId
-        - fileName
-        - gcsPath
-        - contentType
-        - uploadTimestamp
-        - status
+          description: Current status of the image processing.
+        signedUrl:
+          type: string
+          format: url
+          description: A temporary signed URL to access/view the processed image (if available).
+          nullable: true
+        thumbnailPath:
+          type: string
+          description: GCS path to the generated thumbnail (if processed).
+          nullable: true
+        thumbnailSignedUrl:
+          type: string
+          format: url
+          description: A temporary signed URL to access/view the thumbnail (if available).
+          nullable: true
 
     ErrorResponse:
       type: object
@@ -76,19 +93,19 @@ components:
         - error
 
   securitySchemes:
-    cookieAuth: # Replaces bearerAuth as we are using session cookies
+    cookieAuth:
       type: apiKey
       in: cookie
-      name: connect.sid # Default name for @fastify/session cookie, adjust if different
+      name: sessionId # Name of the session cookie used by @fastify/session
 
 security:
   - cookieAuth: []
 
 paths:
   /api/auth/google:
-    get: # Changed from POST to GET
+    get:
       summary: Initiate Google OAuth2 login
-      description: Redirects the user to Google's OAuth2 consent screen.
+      description: Redirects the user to Google for authentication.
       tags:
         - Authentication
       responses:
@@ -103,62 +120,44 @@ paths:
 
   /api/auth/google/callback:
     get:
-      summary: Handle Google OAuth2 callback
-      description: Handles the callback from Google after user authentication. Exchanges code for tokens, fetches profile, creates/finds user, sets session, and redirects to frontend.
+      summary: Google OAuth2 callback
+      description: Handles the callback from Google after authentication. Sets session cookie on success.
       tags:
         - Authentication
       parameters:
         - name: code
           in: query
           required: true
-          description: The authorization code from Google.
           schema:
             type: string
+          description: The authorization code from Google.
         - name: state
           in: query
-          required: false
-          description: An optional state parameter for CSRF protection (if used).
+          required: false # Depending on your OAuth flow, state might be optional or required
           schema:
             type: string
+          description: An opaque value used to maintain state between the request and the callback.
       responses:
         '302':
-          description: Redirect to frontend dashboard on successful authentication.
+          description: Redirect to frontend dashboard on successful login.
         '400':
-          description: Bad request, e.g., missing authorization code.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request (e.g., missing code).
         '500':
-          description: Internal server error during OAuth callback processing.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Internal Server Error.
 
   /api/auth/logout:
     post:
       summary: Logout user
-      description: Destroys the current user's session.
+      description: Destroys the current session, effectively logging out the user.
       tags:
         - Authentication
+      security:
+        - cookieAuth: [] # Requires active session
       responses:
         '200':
           description: Successfully logged out.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Successfully logged out
         '400':
           description: Bad request, e.g., user not logged in.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error during logout.
           content:
@@ -166,33 +165,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/auth/me:
-    get:
-      summary: Get current user profile
-      description: Retrieves the profile of the currently authenticated user.
-      tags:
-        - Authentication
-        - Users
-      security:
-        - cookieAuth: []
-      responses:
-        '200':
-          description: Successfully retrieved user profile.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '401':
-          description: Unauthorized, user not authenticated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/images/upload: # New endpoint
+  /api/images/upload:
     post:
       summary: Upload an image
-      description: Allows authenticated users to upload an image file. The file will be stored in GCS and metadata saved.
+      description: Uploads an image file to be processed. Requires authentication.
       tags:
         - Images
       security:
@@ -204,49 +180,35 @@ paths:
             schema:
               type: object
               properties:
-                file: # Name of the form field for the file
+                file:
                   type: string
                   format: binary
-                  description: The image file to upload.
-              required:
-                - file
+                  description: The image file to upload (jpeg, png, gif).
       responses:
         '201':
-          description: Image uploaded successfully.
+          description: Image uploaded successfully, metadata returned.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ImageMetadata'
         '400':
-          description: Bad request (e.g., no file, invalid file type).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request (e.g., no file, invalid file type).
         '401':
           description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal server error (e.g., GCS upload failure, config error).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Internal Server Error during upload.
 
-  /api/images: # New path for listing images
+  /api/images:
     get:
       summary: List user's images
-      description: Retrieves a list of image metadata records uploaded by the authenticated user, sorted by most recent.
+      description: Retrieves a list of images (metadata) uploaded by the authenticated user.
       tags:
         - Images
       security:
         - cookieAuth: []
       responses:
         '200':
-          description: Successfully retrieved list of image metadata.
+          description: A list of image metadata.
           content:
             application/json:
               schema:
@@ -255,12 +217,8 @@ paths:
                   $ref: '#/components/schemas/ImageMetadata'
         '401':
           description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal server error.
+          description: Internal Server Error.
           content:
             application/json:
               schema:

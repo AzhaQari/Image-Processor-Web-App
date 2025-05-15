@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyPluginOptions, FastifyRequest } from 'fastify';
+import { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from 'fastify';
 import { google } from 'googleapis';
 import { getConfig } from '../config/secrets';
 import { userService } from '../services/userService';
@@ -46,7 +46,7 @@ export default async function authRoutes(fastify: FastifyInstance, options: Fast
   });
 
   // Route to handle Google OAuth callback
-  fastify.get('/google/callback', async (request: FastifyRequest<{ Querystring: { code: string; state?: string } }>, reply) => {
+  fastify.get('/google/callback', async (request: FastifyRequest<{ Querystring: { code?: string; error?: string } }>, reply: FastifyReply) => {
     const { code } = request.query;
     if (!code) {
       reply.status(400).send({ error: 'Missing authorization code' });
@@ -110,24 +110,28 @@ export default async function authRoutes(fastify: FastifyInstance, options: Fast
     }
   });
 
-  // Route to get current user's profile (protected)
-  fastify.get('/me', async (request, reply) => {
-    if (!request.session.user || !request.session.user.userId) {
-      reply.status(401).send({ error: 'Unauthorized' });
-      return;
+  // REMOVED /me route, as it will be handled by tRPC
+  /*
+  fastify.get('/me', {
+    preHandler: fastify.auth([verifyUserSession]) // Ensure user is authenticated
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.session.user!.userId!;
+    try {
+      const user = userService.findById(userId);
+      if (!user) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+      // Return a subset of user data suitable for the client
+      reply.send({ 
+        id: user.id, 
+        email: user.email, 
+        name: user.name 
+        // photoUrl: user.photoUrl // if you add it to your user model and want to send it
+      });
+    } catch (error) {
+      fastify.log.error('Error fetching user profile:', error);
+      reply.code(500).send({ error: 'Internal Server Error', message: 'Failed to retrieve user profile.' });
     }
-
-    const user = userService.findById(request.session.user.userId);
-    if (!user) {
-      // This case should ideally not happen if session.user.userId is valid
-      // and user was not deleted from store while session is active.
-      // Could destroy session here as a precaution.
-      await request.session.destroy(); 
-      reply.status(401).send({ error: 'Unauthorized - user not found, session terminated' });
-      return;
-    }
-    // Don't send sensitive stuff like tokens here unless specifically needed by frontend
-    // and frontend handles them securely.
-    reply.send({ id: user.id, email: user.email, name: user.name });
   });
+  */
 } 
