@@ -262,7 +262,7 @@ The OpenAPI (Swagger) documentation for the RESTful API is available when the ba
 
 ## Loom Video Walkthrough
 
-*   [Link to Loom Video - TO BE ADDED]
+*   https://www.loom.com/share/d908fa0943ba4822a85b52568dc3331d?sid=7b909924-4c6e-4685-92bd-04fd971ebf49
 
 ---
 
